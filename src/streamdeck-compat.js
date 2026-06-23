@@ -25,7 +25,9 @@
   state.info = state.info || {};
   state.actionInfo = state.actionInfo || {};
   state.websocket = state.websocket || null;
+  state.connection = state.connection || null;
   state.warnings = state.warnings || [];
+  state._listeners = state._listeners || {};
   state.customRegistrationDetected = typeof global.connectElgatoStreamDeckSocket === 'function';
 
   global.streamDeckCompat = state;
@@ -154,6 +156,53 @@
       message.action = options.action;
     }
     return message;
+  }
+
+  function on(eventName, handler) {
+    if (!eventName || typeof handler !== 'function') {
+      return function noop() {};
+    }
+    state._listeners[eventName] = state._listeners[eventName] || [];
+    state._listeners[eventName].push(handler);
+    return function unsubscribe() {
+      off(eventName, handler);
+    };
+  }
+
+  function off(eventName, handler) {
+    var listeners = state._listeners[eventName];
+    if (!listeners) {
+      return;
+    }
+    if (!handler) {
+      state._listeners[eventName] = [];
+      return;
+    }
+    state._listeners[eventName] = listeners.filter(function keep(listener) {
+      return listener !== handler;
+    });
+  }
+
+  function once(eventName, handler) {
+    if (typeof handler !== 'function') {
+      return function noop() {};
+    }
+    function wrapped(message) {
+      off(eventName, wrapped);
+      handler(message);
+    }
+    return on(eventName, wrapped);
+  }
+
+  function emit(eventName, message) {
+    var listeners = (state._listeners[eventName] || []).slice();
+    listeners.forEach(function notify(listener) {
+      try {
+        listener(message);
+      } catch (error) {
+        warn('listener for "' + eventName + '" failed: ' + error.message);
+      }
+    });
   }
 
   function installApiHelpers(api) {
@@ -337,6 +386,8 @@
     if (typeof state.onmessage === 'function') {
       state.onmessage(normalized);
     }
+    emit('message', normalized);
+    emit(eventName, normalized);
     if (typeof global[handlerName] === 'function') {
       global[handlerName](normalized);
     }
@@ -353,9 +404,11 @@
 
     var socket = new global.WebSocket('ws://127.0.0.1:' + port);
     state.websocket = socket;
+    state.connection = socket;
 
     socket.onopen = function onOpen(event) {
       sendJson(socket, { event: registerEvent, uuid: uuid });
+      emit('connected', { websocket: socket, uuid: uuid, event: registerEvent, info: state.info, actionInfo: state.actionInfo });
       if (typeof global.onConnected === 'function') {
         global.onConnected(socket, uuid, registerEvent, state.info, state.actionInfo, event);
       }
@@ -394,6 +447,10 @@
   state.connect = connectElgatoStreamDeckSocket;
   state.api = state.api || {};
   installApiHelpers(state.api);
+  state.on = typeof state.on === 'function' ? state.on : on;
+  state.off = typeof state.off === 'function' ? state.off : off;
+  state.once = typeof state.once === 'function' ? state.once : once;
+  state.emit = typeof state.emit === 'function' ? state.emit : emit;
   state.normalizePayloadForDeck = normalizePayloadForDeck;
   state.normalizePayloadForDock = normalizePayloadForDock;
   state.warn = warn;

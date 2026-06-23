@@ -57,6 +57,8 @@ test('connectElgatoStreamDeckSocket accepts JSON strings and sends registration 
 
 test('connectElgatoStreamDeckSocket accepts object args and dispatches normalized events', () => {
   let received;
+  let receivedByListener;
+  let receivedByMessageListener;
   const { sandbox, sockets } = loadCompat({
     onDialRotate(message) {
       received = message;
@@ -64,6 +66,12 @@ test('connectElgatoStreamDeckSocket accepts object args and dispatches normalize
   });
 
   sandbox.connectElgatoStreamDeckSocket(12345, 'plugin-uuid', 'registerPlugin', {}, { context: 'ctx' });
+  sandbox.$SD.on('dialRotate', (message) => {
+    receivedByListener = message;
+  });
+  sandbox.$SD.on('message', (message) => {
+    receivedByMessageListener = message;
+  });
   sockets[0].onmessage({
     data: JSON.stringify({
       event: 'dialRotate',
@@ -81,6 +89,8 @@ test('connectElgatoStreamDeckSocket accepts object args and dispatches normalize
       titleParameters: { titleAlignment: 'middle' }
     }
   });
+  assert.deepEqual(plain(receivedByListener), plain(received));
+  assert.deepEqual(plain(receivedByMessageListener), plain(received));
 });
 
 test('WebSocket helpers send Stream Deck-compatible API messages to Stream Dock', () => {
@@ -176,6 +186,55 @@ test('$SD.api preserves existing helper functions and fills missing ones', () =>
   assert.equal(sandbox.$SD.api.setTitle, customSetTitle);
   assert.equal(sandbox.$SD.api.setTitle(), 'custom');
   assert.equal(typeof sandbox.$SD.api.setSettings, 'function');
+});
+
+test('$SD event helpers support off, once, and connected notifications', () => {
+  const connected = [];
+  const keyDown = [];
+  const onceKeyDown = [];
+  const removedKeyDown = [];
+  const { sandbox, sockets } = loadCompat();
+
+  sandbox.$SD.on('connected', (message) => {
+    connected.push(message);
+  });
+  sandbox.connectElgatoStreamDeckSocket(12345, 'plugin-uuid', 'registerPlugin', {}, { context: 'ctx' });
+  sockets[0].onopen({});
+
+  function removedListener(message) {
+    removedKeyDown.push(message);
+  }
+
+  sandbox.$SD.on('keyDown', (message) => {
+    keyDown.push(message);
+  });
+  sandbox.$SD.once('keyDown', (message) => {
+    onceKeyDown.push(message);
+  });
+  sandbox.$SD.on('keyDown', removedListener);
+  sandbox.$SD.off('keyDown', removedListener);
+
+  sockets[0].onmessage({ data: JSON.stringify({ event: 'keyDown', payload: {} }) });
+  sockets[0].onmessage({ data: JSON.stringify({ event: 'keyDown', payload: {} }) });
+
+  assert.equal(sandbox.$SD.connection, sockets[0]);
+  assert.equal(connected.length, 1);
+  assert.equal(connected[0].uuid, 'plugin-uuid');
+  assert.equal(keyDown.length, 2);
+  assert.equal(onceKeyDown.length, 1);
+  assert.equal(removedKeyDown.length, 0);
+});
+
+test('$SD event helper listener failures are recorded as warnings', () => {
+  const { sandbox, sockets } = loadCompat();
+  sandbox.connectElgatoStreamDeckSocket(12345, 'plugin-uuid', 'registerPlugin', {}, {});
+  sandbox.$SD.on('keyDown', () => {
+    throw new Error('boom');
+  });
+
+  sockets[0].onmessage({ data: JSON.stringify({ event: 'keyDown', payload: {} }) });
+
+  assert.deepEqual(plain(sandbox.$SD.warnings), ['listener for "keyDown" failed: boom']);
 });
 
 test('unsupported helper records warning and does not throw', () => {
