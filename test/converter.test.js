@@ -83,19 +83,22 @@ test('convertPlugin copies compat asset, injects html, converts manifest, and wr
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 's2sd-source-'));
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 's2sd-out-'));
   const outputRoot = path.join(out, 'plugin.sdPlugin');
+  fs.mkdirSync(path.join(root, 'pi'));
   fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify({
     Actions: [{ Name: 'Dial', Controller: 'Encoder', TitleAlignment: 'middle' }]
   }));
   fs.writeFileSync(path.join(root, 'plugin.html'), '<html><head></head><body><script src="plugin.js"></script></body></html>');
+  fs.writeFileSync(path.join(root, 'pi', 'index.html'), '<html><head></head><body></body></html>');
   fs.writeFileSync(path.join(root, 'plugin.js'), 'websocket.getSecrets();');
 
   const report = convertPlugin(root, outputRoot);
 
   assert.equal(report.manifestConverted, true);
-  assert.deepEqual(report.injectedHtml, ['plugin.html']);
+  assert.deepEqual(report.injectedHtml, ['pi/index.html', 'plugin.html']);
   assert.equal(report.compatibility.status, 'compatible-with-warnings');
   assert.equal(fs.existsSync(path.join(outputRoot, 'streamdeck-compat.js')), true);
-  assert.match(fs.readFileSync(path.join(outputRoot, 'plugin.html'), 'utf8'), /streamdeck-compat\.js/);
+  assert.match(fs.readFileSync(path.join(outputRoot, 'plugin.html'), 'utf8'), /<script src="streamdeck-compat\.js"><\/script>/);
+  assert.match(fs.readFileSync(path.join(outputRoot, 'pi', 'index.html'), 'utf8'), /<script src="\.\.\/streamdeck-compat\.js"><\/script>/);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(outputRoot, 'manifest.json'), 'utf8')).Actions[0], {
     Name: 'Dial',
     Controller: 'Knob',

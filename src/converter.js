@@ -202,7 +202,8 @@ function ensureDir(dir) {
 
 function listFiles(root) {
   const result = [];
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+  const entries = fs.readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  for (const entry of entries) {
     const fullPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
       result.push(...listFiles(fullPath));
@@ -227,7 +228,8 @@ function copyAndConvertFile(sourceFile, sourceRoot, outputRoot, report) {
   }
 
   if (/\.html$/i.test(sourceFile)) {
-    const converted = injectCompatScript(fs.readFileSync(sourceFile, 'utf8'));
+    const scriptPath = path.relative(path.dirname(outputFile), path.join(outputRoot, COMPAT_SCRIPT_NAME)).replaceAll(path.sep, '/');
+    const converted = injectCompatScript(fs.readFileSync(sourceFile, 'utf8'), scriptPath);
     fs.writeFileSync(outputFile, converted);
     report.injectedHtml.push(relative);
     return;
