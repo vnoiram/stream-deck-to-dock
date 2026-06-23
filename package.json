@@ -1,0 +1,17 @@
+{
+  "name": "steam-to-stream-deck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compatibility layer and converter for Stream Deck WebSocket plugins on Stream Dock.",
+  "main": "src/index.js",
+  "bin": {
+    "steam-to-stream-deck": "bin/steam-to-stream-deck.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
