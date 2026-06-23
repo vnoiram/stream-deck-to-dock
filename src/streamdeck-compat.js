@@ -156,6 +156,73 @@
     return message;
   }
 
+  function installApiHelpers(api) {
+    var helpers = {
+      setTitle: function setTitle(context, title, target, stateIndex) {
+        return sendJson(state.websocket, {
+          event: 'setTitle',
+          context: context,
+          payload: { title: title, target: target, state: stateIndex }
+        });
+      },
+      setImage: function setImage(context, image, target, stateIndex) {
+        readImageAsDataUrl(image, function sendImage(dataUrl) {
+          sendJson(state.websocket, {
+            event: 'setImage',
+            context: context,
+            payload: { image: dataUrl, target: target, state: stateIndex }
+          });
+        });
+      },
+      setSettings: function setSettings(context, payload) {
+        return sendJson(state.websocket, { event: 'setSettings', context: context || contextFrom(), payload: payload || {} });
+      },
+      getSettings: function getSettings(context) {
+        return sendJson(state.websocket, { event: 'getSettings', context: context || contextFrom() });
+      },
+      setGlobalSettings: function setGlobalSettings(context, payload) {
+        return sendJson(state.websocket, { event: 'setGlobalSettings', context: context || globalContextFrom(), payload: payload || {} });
+      },
+      getGlobalSettings: function getGlobalSettings(context) {
+        return sendJson(state.websocket, { event: 'getGlobalSettings', context: context || globalContextFrom() });
+      },
+      sendToPlugin: function sendToPlugin(action, context, payload) {
+        return sendJson(state.websocket, { event: 'sendToPlugin', action: action, context: context || contextFrom(), payload: payload || {} });
+      },
+      sendToPropertyInspector: function sendToPropertyInspector(action, context, payload) {
+        return sendJson(state.websocket, { event: 'sendToPropertyInspector', action: action, context: context || contextFrom(), payload: payload || {} });
+      },
+      showAlert: function showAlert(context) {
+        return sendJson(state.websocket, { event: 'showAlert', context: context || contextFrom() });
+      },
+      showOk: function showOk(context) {
+        return sendJson(state.websocket, { event: 'showOk', context: context || contextFrom() });
+      },
+      setState: function setState(context, stateIndex) {
+        return sendJson(state.websocket, { event: 'setState', context: context || contextFrom(), payload: { state: stateIndex } });
+      },
+      openUrl: function openUrl(url) {
+        return sendJson(state.websocket, { event: 'openUrl', payload: { url: url } });
+      },
+      logMessage: function logMessage(message) {
+        return sendJson(state.websocket, { event: 'logMessage', payload: { message: message } });
+      }
+    };
+
+    unsupportedEvents.forEach(function addUnsupported(event) {
+      helpers[event] = function unsupportedHelper() {
+        warn(event + ' is not supported by the Stream Dock compatibility layer');
+        return false;
+      };
+    });
+
+    Object.keys(helpers).forEach(function install(name) {
+      if (typeof api[name] !== 'function') {
+        api[name] = helpers[name];
+      }
+    });
+  }
+
   function readImageAsDataUrl(url, callback) {
     if (/^data:/i.test(url)) {
       callback(url);
@@ -325,6 +392,8 @@
   }
 
   state.connect = connectElgatoStreamDeckSocket;
+  state.api = state.api || {};
+  installApiHelpers(state.api);
   state.normalizePayloadForDeck = normalizePayloadForDeck;
   state.normalizePayloadForDock = normalizePayloadForDock;
   state.warn = warn;

@@ -14,6 +14,7 @@ It targets JavaScript/HTML plugins that use the classic Stream Deck WebSocket AP
 - Provides a browser compatibility layer with:
   - `window.connectElgatoStreamDeckSocket`
   - `window.$SD`
+  - `window.$SD.api` helper methods
   - `window.streamDeckCompat`
   - optional `WebSocket.prototype` helper methods
 - Writes `conversion-report.json` with compatibility status and warnings.
@@ -57,6 +58,8 @@ The compatibility layer supports sending these Stream Deck-style events where St
 - `setState`
 - `openUrl`
 - `logMessage`
+
+These helpers are available both as WebSocket instance methods, for plugins that call methods on their socket object, and as `$SD.api.*` methods for plugins that use a shared Stream Deck helper object.
 
 Unsupported APIs are no-op helpers that record a warning instead of throwing:
 

@@ -122,6 +122,62 @@ test('WebSocket helpers send Stream Deck-compatible API messages to Stream Dock'
   assert.equal(sent[3].context, 'plugin-uuid');
 });
 
+test('$SD.api helpers send through the active websocket', () => {
+  const { sandbox, sent } = loadCompat();
+  sandbox.connectElgatoStreamDeckSocket(12345, 'plugin-uuid', 'registerPlugin', {}, { context: 'ctx' });
+
+  sandbox.$SD.api.setTitle('ctx', 'Hello', 0, 1);
+  sandbox.$SD.api.setSettings('ctx', { a: 1 });
+  sandbox.$SD.api.getSettings('ctx');
+  sandbox.$SD.api.setGlobalSettings(null, { g: true });
+  sandbox.$SD.api.getGlobalSettings();
+  sandbox.$SD.api.sendToPlugin('action', 'ctx', { p: true });
+  sandbox.$SD.api.sendToPropertyInspector('action', 'ctx', { pi: true });
+  sandbox.$SD.api.showAlert('ctx');
+  sandbox.$SD.api.showOk('ctx');
+  sandbox.$SD.api.setState('ctx', 1);
+  sandbox.$SD.api.openUrl('https://example.test');
+  sandbox.$SD.api.logMessage('msg');
+
+  assert.deepEqual(sent.map((message) => message.event), [
+    'setTitle',
+    'setSettings',
+    'getSettings',
+    'setGlobalSettings',
+    'getGlobalSettings',
+    'sendToPlugin',
+    'sendToPropertyInspector',
+    'showAlert',
+    'showOk',
+    'setState',
+    'openUrl',
+    'logMessage'
+  ]);
+  assert.deepEqual(sent[0], {
+    event: 'setTitle',
+    context: 'ctx',
+    payload: { title: 'Hello', target: 0, state: 1 }
+  });
+  assert.equal(sent[3].context, 'plugin-uuid');
+});
+
+test('$SD.api preserves existing helper functions and fills missing ones', () => {
+  function customSetTitle() {
+    return 'custom';
+  }
+  const { sandbox } = loadCompat({
+    $SD: {
+      api: {
+        setTitle: customSetTitle
+      }
+    }
+  });
+
+  assert.equal(sandbox.$SD.api.setTitle, customSetTitle);
+  assert.equal(sandbox.$SD.api.setTitle(), 'custom');
+  assert.equal(typeof sandbox.$SD.api.setSettings, 'function');
+});
+
 test('unsupported helper records warning and does not throw', () => {
   const { sandbox, sockets } = loadCompat();
   sandbox.connectElgatoStreamDeckSocket(12345, 'plugin-uuid', 'registerPlugin', {}, {});
