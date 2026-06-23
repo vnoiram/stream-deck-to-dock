@@ -5,7 +5,7 @@ const path = require('node:path');
 const { convertPlugin } = require('../src');
 
 function usage() {
-  console.error('Usage: steam-to-stream-deck <source-plugin-dir> <output-plugin-dir>');
+  console.error('Usage: stream-deck-to-dock <source-plugin-dir> <output-plugin-dir>');
 }
 
 const [, , sourceArg, outputArg] = process.argv;
